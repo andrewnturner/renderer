@@ -1,6 +1,9 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
 
+use crate::point::Point3;
+
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Vertex {
     pub x: f32,
     pub y: f32,
@@ -11,25 +14,29 @@ impl Vertex {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Vertex { x: x, y: y, z: z }
     }
+
+    pub fn to_point3(self) -> Point3<f32> {
+        Point3::new(self.x, self.y, self.z)
+    }
 }
 
 pub struct Face {
+    pub i0: usize,
     pub i1: usize,
     pub i2: usize,
-    pub i3: usize,
 }
 
 impl Face {
-    pub fn new(i1: usize, i2: usize, i3: usize) -> Self {
+    pub fn new(i0: usize, i1: usize, i2: usize) -> Self {
         Face {
+            i0: i0,
             i1: i1,
             i2: i2,
-            i3: i3,
         }
     }
 
     pub fn lines(&self) -> Vec<(usize, usize)> {
-        vec![(self.i1, self.i2), (self.i2, self.i3), (self.i3, self.i1)]
+        vec![(self.i0, self.i1), (self.i1, self.i2), (self.i2, self.i0)]
     }
 }
 
@@ -60,6 +67,14 @@ impl Model {
                     vertices.push(Vertex::new(x, y, z));
                 }
                 "f" => {
+                    let i0: usize = parts
+                        .next()
+                        .unwrap()
+                        .split("/")
+                        .next()
+                        .unwrap()
+                        .parse()
+                        .unwrap();
                     let i1: usize = parts
                         .next()
                         .unwrap()
@@ -76,17 +91,9 @@ impl Model {
                         .unwrap()
                         .parse()
                         .unwrap();
-                    let i3: usize = parts
-                        .next()
-                        .unwrap()
-                        .split("/")
-                        .next()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
 
                     // THe file uses 1-indices, but we use 0-indices.
-                    faces.push(Face::new(i1 - 1, i2 - 1, i3 - 1));
+                    faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
                 }
                 _ => {}
             }
