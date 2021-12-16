@@ -75,6 +75,7 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
         let b = (channels[2] as f32 * intensity) as u8;
         let colour_out = Rgb([r, g, b]);
 
+        // Cull any faces which point away from the camera.
         if intensity > 0.0 {
             draw_triangle(&mut image, colour_out, p0, p1, p2);
         }
