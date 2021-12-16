@@ -82,9 +82,9 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
     let mut max_y: i32 = 0;
     for p in [p0, p1, p2] {
         min_x = max(0, min(min_x, p.x as i32));
-        max_x = min(image.width() as i32 - 1, max(max_x, p.x as i32));
+        max_x = min(image.width() as i32 - 1, max(max_x, p.x as i32 + 1));
         min_y = max(0, min(min_y, p.y as i32));
-        max_y = min(image.height() as i32 - 1, max(max_y, p.y as i32));
+        max_y = min(image.height() as i32 - 1, max(max_y, p.y as i32 + 1));
     }
 
     // Fill in triangle
@@ -96,55 +96,10 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
             if b.x < 0.0 || b.y < 0.0 || b.z < 0.0 { continue; }
 
             let z = (p0.z * b.x) + (p1.z * b.y) + (p2.z * p2.y);
-            if z_buffer.get(p.x as usize, p.y as usize).unwrap() < &z {
-                z_buffer.set(p.x as usize, p.y as usize, z);
+            if z_buffer.get(x as usize, y as usize).unwrap() < &z {
+                z_buffer.set(x as usize, y as usize, z).unwrap();
                 image.put_pixel(x as u32, y as u32, colour);
             }
-        }
-    }
-}
-
-pub fn draw_triangle_scan<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
-    image: &mut ImageBuffer<P, C>,
-    colour: P,
-    mut p0: Point2<i32>,
-    mut p1: Point2<i32>,
-    mut p2: Point2<i32>,
-) {
-    // First sort the points so that p0.y <= p1.y <= p2.y.
-    if p0.y > p1.y {swap(&mut p0, &mut p1);}
-    if p0.y > p2.y {swap(&mut p0, &mut p2);}
-    if p1.y > p2.y {swap(&mut p1, &mut p2);}
-
-    let total_height = (p2.y - p0.y) as f32;
-
-    let lower_height = (p1.y - p0.y + 1) as f32;
-    for y in p0.y..p1.y + 1 {
-        let alpha = (y as f32 - p0.y as f32) / total_height;
-        let beta = (y as f32 - p0.y as f32) / lower_height;
-
-        let mut a = p0 + ((p2 - p0).to_f32() * alpha).to_i32();
-        let mut b = p0 + ((p1 - p0).to_f32() * beta).to_i32();
-
-        if a.x > b.x {swap(&mut a, &mut b);}
-
-        for j in a.x..b.x + 1 {
-            image.put_pixel(j as u32, y as u32, colour);
-        }
-    }
-
-    let upper_height = (p2.y - p1.y + 1) as f32;
-    for y in p1.y..p2.y + 1 {
-        let alpha = (y as f32 - p0.y as f32) / total_height;
-        let beta = (y as f32 - p1.y as f32) / upper_height;
-
-        let mut a = p0 + ((p2 - p0).to_f32() * alpha).to_i32();
-        let mut b = p1 + ((p2 - p1).to_f32() * beta).to_i32();
-
-        if a.x > b.x {swap(&mut a, &mut b);}
-
-        for j in a.x..b.x + 1 {
-            image.put_pixel(j as u32, y as u32, colour);
         }
     }
 }

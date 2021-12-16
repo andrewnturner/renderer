@@ -31,15 +31,6 @@ impl Point2<i32> {
     }
 }
 
-impl Point2<f32> {
-    pub fn to_i32(self) -> Point2<i32> {
-        Point2 {
-            x: self.x as i32,
-            y: self.y as i32,
-        }
-    }
-}
-
 impl<T: Num> Add for Point2<T> {
     type Output = Self;
 
