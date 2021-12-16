@@ -1,5 +1,6 @@
 use std::ops::DerefMut;
 
+use array2d::Array2D;
 use image::{ImageBuffer, Pixel, Rgb};
 
 use crate::drawing::{draw_line, draw_triangle};
@@ -42,28 +43,18 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
     colour: Rgb<u8>,
     model: &Model,
 ) {
-    let width = 300.0;
-    let height = 300.0;
-
     let light = Point3::new(1.0, -1.0, -1.0).normalise();
+
+    let mut z_buffer = Array2D::fill_with(f32::NEG_INFINITY, image.width() as usize, image.height() as usize);
 
     for face in model.faces() {
         let v0 = model.vertex(face.i0).to_point3();
         let v1 = model.vertex(face.i1).to_point3();
         let v2 = model.vertex(face.i2).to_point3();
 
-        let p0 = Point2::new(
-            ((v0.x + 1.0) * (width / 2.0)) as i32,
-            ((v0.y + 1.0) * (height / 2.0)) as i32,
-        );
-        let p1 = Point2::new(
-            ((v1.x + 1.0) * (width / 2.0)) as i32,
-            ((v1.y + 1.0) * (height / 2.0)) as i32,
-        );
-        let p2 = Point2::new(
-            ((v2.x + 1.0) * (width / 2.0)) as i32,
-            ((v2.y + 1.0) * (height / 2.0)) as i32,
-        );
+        let p0 = world_to_screen(v0);
+        let p1 = world_to_screen(v1);
+        let p2 = world_to_screen(v2);
 
         let normal = (v2 - v0).cross(&(v1 - v0)).normalise();
         let intensity = normal.dot(&light);
@@ -77,7 +68,18 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
 
         // Cull any faces which point away from the camera.
         if intensity > 0.0 {
-            draw_triangle(&mut image, colour_out, p0, p1, p2);
+            draw_triangle(&mut image, &mut z_buffer, colour_out, p0, p1, p2);
         }
     }
+}
+
+fn world_to_screen(p: Point3<f32>) -> Point3<f32> {
+    let width = 300.0;
+    let height = 300.0;
+
+    Point3::new(
+        ((p.x + 1.0) * (width / 2.0)) + 0.5,
+        ((p.y + 1.0) * (height / 2.0)) + 0.5,
+        p.z,
+    )
 }

@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+array2d = "0.1.0"
 image = "0.23.14"
 num-traits = "0.2.14"
