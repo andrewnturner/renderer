@@ -3,6 +3,8 @@ use std::ops::{Add, Sub, Mul};
 
 use num_traits::Num;
 
+use crate::matrix::Matrix44;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Point2<T: Num> {
     pub x: T,
@@ -86,6 +88,15 @@ impl<T: Num + Copy> Point3<T> {
             z: (self.x * other.y) - (self.y * other.x),
         }
     }
+
+    pub fn to_homog(self) -> Point4<T> {
+        Point4 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            w: T::one(),
+        }
+    }
 }
 
 impl Point3<f32> {
@@ -109,5 +120,36 @@ impl<T: Num> Sub for Point3<T> {
 
     fn sub(self, other: Self) -> Self {
         Point3 { x: self.x - other.x, y: self.y - other.y, z: self.z - other.z }
+    }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Point4<T: Num> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
+    pub w: T,
+}
+
+impl<T: Num + Copy> Point4<T> {
+    pub fn to_affine(self) -> Point3<T> {
+        Point3 {
+            x: self.x / self.w,
+            y: self.y / self.w,
+            z: self.z / self.w,
+        }
+    }
+}
+
+impl<T: Num + Copy> Mul<Matrix44<T>> for Point4<T> {
+    type Output = Self;
+
+    fn mul(self, other: Matrix44<T>) -> Self {
+        let answer_x = (self.x * other.m[0][0]) + (self.y * other.m[0][1]) + (self.z * other.m[0][2]) + (self.w * other.m[0][3]);
+        let answer_y = (self.x * other.m[1][0]) + (self.y * other.m[1][1]) + (self.z * other.m[1][2]) + (self.w * other.m[1][3]);
+        let answer_z = (self.x * other.m[2][0]) + (self.y * other.m[2][1]) + (self.z * other.m[2][2]) + (self.w * other.m[2][3]);
+        let answer_w = (self.x * other.m[3][0]) + (self.y * other.m[3][1]) + (self.z * other.m[3][2]) + (self.w * other.m[3][3]);
+        
+        Point4 { x: answer_x, y: answer_y, z: answer_z, w: answer_w }
     }
 }

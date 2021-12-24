@@ -1,4 +1,5 @@
 mod drawing;
+mod matrix;
 mod model;
 mod point;
 mod render;

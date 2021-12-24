@@ -4,6 +4,7 @@ use array2d::Array2D;
 use image::{ImageBuffer, Pixel, Rgb};
 
 use crate::drawing::{draw_line, draw_triangle};
+use crate::matrix::Matrix44;
 use crate::model::Model;
 use crate::point::{Point2, Point3};
 
@@ -43,20 +44,25 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
     colour: Rgb<u8>,
     model: &Model,
 ) {
+    let width = 300.0;
+    let height = 300.0;
     let light = Point3::new(1.0, -1.0, -1.0).normalise();
+
+    let viewport = viewport_matrix(width / 8.0, height / 8.0, width * 0.75, height / 0.75);
+    let projection = projection_matrix(3.0);
 
     let mut z_buffer = Array2D::fill_with(f32::NEG_INFINITY, image.width() as usize, image.height() as usize);
 
     for face in model.faces() {
-        let v0 = model.vertex(face.i0).to_point3();
-        let v1 = model.vertex(face.i1).to_point3();
-        let v2 = model.vertex(face.i2).to_point3();
+        let world_0 = model.vertex(face.i0).to_point3();
+        let world_1 = model.vertex(face.i1).to_point3();
+        let world_2 = model.vertex(face.i2).to_point3();
 
-        let p0 = world_to_screen(v0);
-        let p1 = world_to_screen(v1);
-        let p2 = world_to_screen(v2);
+        let screen_0 = ((viewport * projection) * world_0.to_homog()).to_affine();
+        let screen_1 = (viewport * projection * world_1.to_homog()).to_affine();
+        let screen_2 = (viewport * projection * world_2.to_homog()).to_affine();
 
-        let normal = (v2 - v0).cross(&(v1 - v0)).normalise();
+        let normal = (world_2 - world_0).cross(&(world_1 - world_0)).normalise();
         let intensity = normal.dot(&light);
 
         let rgb = colour.to_rgb();
@@ -68,18 +74,34 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
 
         // Cull any faces which point away from the camera.
         if intensity > 0.0 {
-            draw_triangle(&mut image, &mut z_buffer, colour_out, p0, p1, p2);
+            draw_triangle(&mut image, &mut z_buffer, colour_out, screen_0, screen_1, screen_2);
         }
     }
 }
 
-fn world_to_screen(p: Point3<f32>) -> Point3<f32> {
-    let width = 300.0;
-    let height = 300.0;
+// Scales to the shape of the viewport, and translate to the position.
+fn viewport_matrix(x: f32, y: f32, w: f32, h: f32) -> Matrix44<f32> {
+    let depth = 255.0;
+    
+    let mut matrix = Matrix44::identity();
 
-    Point3::new(
-        ((p.x + 1.0) * (width / 2.0)) + 0.5,
-        ((p.y + 1.0) * (height / 2.0)) + 0.5,
-        p.z,
-    )
+    // Translate
+    matrix.m[0][3] = x + (w / 2.0);
+    matrix.m[1][3] = y + (h / 2.0);
+    matrix.m[2][3] = depth / 2.0;
+
+    // Scale
+    matrix.m[0][0] = w / 2.0;
+    matrix.m[1][1] = h / 2.0;
+    matrix.m[2][2] = depth / 2.0;
+
+    matrix
+}
+
+// Camera on z-axis at dstance c from origin.
+fn projection_matrix(c: f32) -> Matrix44<f32> {
+    let mut matrix = Matrix44::identity();
+    matrix.m[3][2] = -1.0 / c;
+
+    matrix
 }
