@@ -96,7 +96,7 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
             if b.x < 0.0 || b.y < 0.0 || b.z < 0.0 { continue; }
 
             let z = (p0.z * b.x) + (p1.z * b.y) + (p2.z * p2.y);
-            if z_buffer.get(x as usize, y as usize).unwrap() < &z {
+            if z_buffer.get(x as usize, y as usize).unwrap() > &z {
                 z_buffer.set(x as usize, y as usize, z).unwrap();
                 image.put_pixel(x as u32, y as u32, colour);
             }

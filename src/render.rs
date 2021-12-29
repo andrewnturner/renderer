@@ -46,21 +46,26 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
 ) {
     let width = 300.0;
     let height = 300.0;
-    let light = Point3::new(1.0, -1.0, -1.0).normalise();
+    
+    let eye = Point3::new(1.0, -1.0, -2.0);
+    let centre = Point3::new(0.0, 0.0, 0.0);
+
+    let light = eye.normalise();
 
     let viewport = viewport_matrix(width / 8.0, height / 8.0, width * 0.75, height / 0.75);
     let projection = projection_matrix(3.0);
+    let model_view = look_at(eye, centre, Point3::new(0.0, 1.0, 0.0));
 
-    let mut z_buffer = Array2D::fill_with(f32::NEG_INFINITY, image.width() as usize, image.height() as usize);
+    let mut z_buffer = Array2D::fill_with(f32::INFINITY, image.width() as usize, image.height() as usize);
 
     for face in model.faces() {
         let world_0 = model.vertex(face.i0).to_point3();
         let world_1 = model.vertex(face.i1).to_point3();
         let world_2 = model.vertex(face.i2).to_point3();
 
-        let screen_0 = ((viewport * projection) * world_0.to_homog()).to_affine();
-        let screen_1 = (viewport * projection * world_1.to_homog()).to_affine();
-        let screen_2 = (viewport * projection * world_2.to_homog()).to_affine();
+        let screen_0 = (viewport * projection * model_view * world_0.to_homog()).to_affine();
+        let screen_1 = (viewport * projection * model_view * world_1.to_homog()).to_affine();
+        let screen_2 = (viewport * projection * model_view * world_2.to_homog()).to_affine();
 
         let normal = (world_2 - world_0).cross(&(world_1 - world_0)).normalise();
         let intensity = normal.dot(&light);
@@ -104,4 +109,28 @@ fn projection_matrix(c: f32) -> Matrix44<f32> {
     matrix.m[3][2] = -1.0 / c;
 
     matrix
+}
+
+fn look_at(eye: Point3<f32>, centre: Point3<f32>, up: Point3<f32>) -> Matrix44<f32> {
+    let z = (eye - centre).normalise();
+    let x = up.cross(&z).normalise();
+    let y = z.cross(&x).normalise();
+
+    let mut m_inv = Matrix44::identity();
+    m_inv.m[0][0] = x.x;
+    m_inv.m[1][0] = y.x;
+    m_inv.m[2][0] = z.x;
+    m_inv.m[0][1] = x.y;
+    m_inv.m[1][1] = y.y;
+    m_inv.m[2][1] = z.y;
+    m_inv.m[0][2] = x.z;
+    m_inv.m[1][2] = y.z;
+    m_inv.m[2][2] = z.z;
+
+    let mut m_translate = Matrix44::identity();
+    m_translate.m[0][3] = -centre.x;
+    m_translate.m[1][3] = -centre.y;
+    m_translate.m[2][3] = -centre.z;
+
+    m_inv * m_translate
 }
