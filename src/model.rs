@@ -1,25 +1,22 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
 
-use crate::point::Point3;
+use nalgebra::Vector3;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Vertex {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
+pub struct Vertex(Vector3<f32>);
 
 impl Vertex {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Vertex { x: x, y: y, z: z }
+        Vertex(Vector3::new(x, y, z))
     }
 
-    pub fn to_point3(self) -> Point3<f32> {
-        Point3::new(self.x, self.y, self.z)
+    pub fn as_vector3(&self) -> &Vector3<f32> {
+        &self.0
     }
 }
 
+// We use anti-clockwise vertex ordering for the outside.
 pub struct Face {
     pub i0: usize,
     pub i1: usize,
@@ -92,7 +89,7 @@ impl Model {
                         .parse()
                         .unwrap();
 
-                    // THe file uses 1-indices, but we use 0-indices.
+                    // The file uses 1-indices, but we use 0-indices.
                     faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
                 }
                 _ => {}
