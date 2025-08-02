@@ -31,10 +31,6 @@ impl Face {
             i2: i2,
         }
     }
-
-    pub fn lines(&self) -> Vec<(usize, usize)> {
-        vec![(self.i0, self.i1), (self.i1, self.i2), (self.i2, self.i0)]
-    }
 }
 
 pub struct Model {
@@ -52,45 +48,42 @@ impl Model {
 
         for line in reader.lines() {
             let unwrapped_line = line.unwrap();
-            let mut parts = unwrapped_line.split(" ");
+            let mut parts: Vec<&str> = unwrapped_line.split(" ").collect();
 
-            let line_type = parts.next().unwrap();
+            let line_type = parts[0];
             match line_type {
                 "v" => {
-                    let x: f32 = parts.next().unwrap().parse().unwrap();
-                    let y: f32 = parts.next().unwrap().parse().unwrap();
-                    let z: f32 = parts.next().unwrap().parse().unwrap();
+                    let x: f32 = parts[1].parse().unwrap();
+                    let y: f32 = parts[2].parse().unwrap();
+                    let z: f32 = parts[3].parse().unwrap();
 
                     vertices.push(Vertex::new(x, y, z));
                 }
                 "f" => {
-                    let i0: usize = parts
-                        .next()
-                        .unwrap()
-                        .split("/")
-                        .next()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
-                    let i1: usize = parts
-                        .next()
-                        .unwrap()
-                        .split("/")
-                        .next()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
-                    let i2: usize = parts
-                        .next()
-                        .unwrap()
-                        .split("/")
-                        .next()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
+                    match parts.len() {
+                        4 => {
+                            let i0: usize = parts[1].split("/").next().unwrap().parse().unwrap();
+                            let i1: usize = parts[2].split("/").next().unwrap().parse().unwrap();
+                            let i2: usize = parts[3].split("/").next().unwrap().parse().unwrap();
 
-                    // The file uses 1-indices, but we use 0-indices.
-                    faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
+                            // The file uses 1-indices, but we use 0-indices.
+                            faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
+                        }
+                        5 => {
+                            let i0: usize = parts[1].split("/").next().unwrap().parse().unwrap();
+                            let i1: usize = parts[2].split("/").next().unwrap().parse().unwrap();
+                            let i2: usize = parts[3].split("/").next().unwrap().parse().unwrap();
+                            let i3: usize = parts[4].split("/").next().unwrap().parse().unwrap();
+
+                            // The file uses 1-indices, but we use 0-indices.
+                            faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
+                            faces.push(Face::new(i0 - 1, i2 - 1, i3 - 1));
+                        }
+
+                        num_parts => {
+                            panic!("Unsupported number of vertices: {}", num_parts - 1)
+                        }
+                    }
                 }
                 _ => {}
             }

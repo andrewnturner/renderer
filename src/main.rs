@@ -6,24 +6,38 @@ use std::f32::consts::PI;
 use std::fs::File;
 use std::io::BufWriter;
 
+use clap::{Parser, ValueHint};
 use gif::{DisposalMethod, Encoder, Frame, Repeat};
 use image::imageops::flip_vertical;
-use image::{ImageFormat, Rgb, RgbImage, RgbaImage};
+use image::{Rgb, RgbaImage};
 
 use model::Model;
 use render::{render_scene, RenderMode};
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Path of OBJ file to render
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    model: String,
+
+    /// Path to render GIF file to
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    out: String,
+}
+
 fn main() {
+    let args = Args::parse();
+
     let mode = "solid";
     let width = 400;
     let height = 300;
 
-    let num_frames = 40;
+    let num_frames = 50;
 
-    let model = Model::new_from_obj("assets/african_head.obj").unwrap();
+    let model = Model::new_from_obj(&args.model).unwrap();
 
-    let path = "out.gif";
-    let file = File::create(path).unwrap();
+    let file = File::create(args.out).unwrap();
 
     // TODO: Global palette will speed up frames?
     let writer = BufWriter::new(file);

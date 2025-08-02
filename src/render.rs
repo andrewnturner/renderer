@@ -52,13 +52,13 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
 
     let rotation_matrix = Rotation3::from_axis_angle(&Vector3::y_axis(), rotation);
 
-    let camera = Vector3::new(2.0, 1.0, 5.0);
+    let camera = Vector3::new(2.0, 5.0, 5.0);
     let centre = Vector3::new(0.0, 0.0, 0.0);
 
     let light = camera.normalize();
 
     let model_view = Matrix4::look_at_lh(&camera.into(), &centre.into(), &Vector3::y_axis());
-    let projection = projection_matrix(2.0, 8.0, 0.5, 0.5);
+    let projection = projection_matrix(1.0, 8.0, 0.5, 0.5);
     let scaling = scaling_matrix(width, height);
 
     let mut z_buffer = Array2D::fill_with(
