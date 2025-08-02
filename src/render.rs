@@ -1,8 +1,8 @@
 use std::ops::DerefMut;
 
 use array2d::Array2D;
-use image::{ImageBuffer, Pixel, Rgb};
-use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
+use image::{ImageBuffer, Pixel, Rgb, Rgba};
+use nalgebra::{Matrix4, Rotation3, Vector2, Vector3, Vector4};
 
 use crate::drawing::{draw_line, draw_triangle};
 use crate::model::Model;
@@ -40,15 +40,17 @@ impl RenderMode {
 }
 
 pub fn render_scene<C: DerefMut<Target = [u8]>>(
-    mut image: &mut ImageBuffer<Rgb<u8>, C>,
+    mut image: &mut ImageBuffer<Rgba<u8>, C>,
     colour: Rgb<u8>,
+    reverse_colour: Rgb<u8>,
     model: &Model,
     render_mode: RenderMode,
+    rotation: f32,
 ) {
     let width = 400.0;
     let height = 300.0;
 
-    let reverse_colour = Rgb([255, 255, 0]);
+    let rotation_matrix = Rotation3::from_axis_angle(&Vector3::y_axis(), rotation);
 
     let camera = Vector3::new(2.0, 1.0, 5.0);
     let centre = Vector3::new(0.0, 0.0, 0.0);
@@ -66,13 +68,13 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
     );
 
     for face in model.faces() {
-        let world_0 = model.vertex(face.i0).as_vector3();
-        let world_1 = model.vertex(face.i1).as_vector3();
-        let world_2 = model.vertex(face.i2).as_vector3();
+        let world_0 = rotation_matrix * model.vertex(face.i0).as_vector3();
+        let world_1 = rotation_matrix * model.vertex(face.i1).as_vector3();
+        let world_2 = rotation_matrix * model.vertex(face.i2).as_vector3();
 
-        let screen_0 = scaling * projection * model_view * to_homog(world_0);
-        let screen_1 = scaling * projection * model_view * to_homog(world_1);
-        let screen_2 = scaling * projection * model_view * to_homog(world_2);
+        let screen_0 = scaling * projection * model_view * to_homog(&world_0);
+        let screen_1 = scaling * projection * model_view * to_homog(&world_1);
+        let screen_2 = scaling * projection * model_view * to_homog(&world_2);
 
         let normal = (world_2 - world_0).cross(&(world_1 - world_0)).normalize();
         let intensity = normal.dot(&light);
@@ -85,7 +87,7 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
             let r = (channels[0] as f32 * intensity) as u8;
             let g = (channels[1] as f32 * intensity) as u8;
             let b = (channels[2] as f32 * intensity) as u8;
-            let colour_out = Rgb([r, g, b]);
+            let colour_out = Rgba([r, g, b, 255]);
 
             render_mode.draw_triangle(
                 &mut image,
@@ -101,7 +103,7 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
             let r = (channels[0] as f32 * -intensity) as u8;
             let g = (channels[1] as f32 * -intensity) as u8;
             let b = (channels[2] as f32 * -intensity) as u8;
-            let colour_out = Rgb([r, g, b]);
+            let colour_out = Rgba([r, g, b, 255]);
 
             render_mode.draw_triangle(
                 &mut image,
