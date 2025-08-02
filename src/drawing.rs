@@ -4,19 +4,19 @@ use std::ops::DerefMut;
 
 use array2d::Array2D;
 use image::{ImageBuffer, Pixel};
-use nalgebra::{Point2, Point3, Vector3};
+use nalgebra::{Vector2, Vector3};
 
 pub fn draw_line<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
     image: &mut ImageBuffer<P, C>,
     colour: P,
-    p0: Point2<i32>,
-    p1: Point2<i32>,
+    p0: Vector2<i32>,
+    p1: Vector2<i32>,
 ) {
     // We need the line to be more horizontal than vertical. If it's more vertical,
     // then we can transpose the coordinates and run the algorithm, and we just
     // transpose back at the end.
     let (steep, mut a0, mut a1) = if (p0.x - p1.x).abs() < (p0.y - p1.y).abs() {
-        (true, Point2::new(p0.y, p0.x), Point2::new(p1.y, p1.x))
+        (true, Vector2::new(p0.y, p0.x), Vector2::new(p1.y, p1.x))
     } else {
         (false, p0, p1)
     };
@@ -31,11 +31,12 @@ pub fn draw_line<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
         let t = (x - a0.x) as f32 / (a1.x - a0.x) as f32;
         let y = ((a0.y as f32 * (1.0 - t)) + (a1.y as f32 * t)) as u32;
 
-        if steep {
-            image.put_pixel(y, x as u32, colour);
-        } else {
-            image.put_pixel(x as u32, y, colour);
+        let (target_x, target_y) = if steep { (y, x as u32) } else { (x as u32, y) };
+
+        if (target_x >= image.width()) | (target_y >= image.height()) {
+            continue;
         }
+        image.put_pixel(target_x, target_y, colour);
     }
 }
 
@@ -44,29 +45,29 @@ pub fn draw_line<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
 // Then
 //     P = A + u(AB) + v(AC).
 fn barycentric_coordinates(
-    p0: Point3<f32>,
-    p1: Point3<f32>,
-    p2: Point3<f32>,
-    p: Point2<f32>,
-) -> Point3<f32> {
+    p0: Vector3<f32>,
+    p1: Vector3<f32>,
+    p2: Vector3<f32>,
+    p: Vector2<f32>,
+) -> Vector3<f32> {
     let a = Vector3::new(p2.x - p0.x, p1.x - p0.x, p0.x - p.x);
     let b = Vector3::new(p2.y - p0.y, p1.y - p0.y, p0.y - p.y);
 
     let u = a.cross(&b);
     if u.z.abs() < 1.0 {
-        return Point3::new(-1.0, 1.0, 1.0);
+        return Vector3::new(-1.0, 1.0, 1.0);
     }
 
-    Point3::new(1.0 - ((u.x + u.y) / u.z), u.y / u.z, u.x / u.z)
+    Vector3::new(1.0 - ((u.x + u.y) / u.z), u.y / u.z, u.x / u.z)
 }
 
 pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
     image: &mut ImageBuffer<P, C>,
     z_buffer: &mut Array2D<f32>,
     colour: P,
-    p0: Point3<f32>,
-    p1: Point3<f32>,
-    p2: Point3<f32>,
+    p0: Vector3<f32>,
+    p1: Vector3<f32>,
+    p2: Vector3<f32>,
 ) {
     // Calculate bounding box
     let mut min_x: i32 = image.width() as i32 - 1;
@@ -83,7 +84,7 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
     // Fill in triangle
     for x in min_x..max_x {
         for y in min_y..max_y {
-            let p = Point2::new(x as f32, y as f32);
+            let p = Vector2::new(x as f32, y as f32);
             let b = barycentric_coordinates(p0, p1, p2, p);
 
             if b.x < 0.0 || b.y < 0.0 || b.z < 0.0 {

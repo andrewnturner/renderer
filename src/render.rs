@@ -2,49 +2,55 @@ use std::ops::DerefMut;
 
 use array2d::Array2D;
 use image::{ImageBuffer, Pixel, Rgb};
-use nalgebra::{Matrix4, Point2, Vector3, Vector4};
+use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 
 use crate::drawing::{draw_line, draw_triangle};
 use crate::model::Model;
 
-pub fn draw_wireframe<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
-    mut image: &mut ImageBuffer<P, C>,
-    colour: P,
-    model: &Model,
-) {
-    let width = 300.0;
-    let height = 300.0;
+pub enum RenderMode {
+    Wireframe,
+    Solid,
+}
 
-    for face in model.faces() {
-        for (i0, i1) in face.lines() {
-            let v0 = model.vertex(i0);
-            let v1 = model.vertex(i1);
+impl RenderMode {
+    fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
+        &self,
+        image: &mut ImageBuffer<P, C>,
+        z_buffer: &mut Array2D<f32>,
+        colour: P,
+        p0: Vector3<f32>,
+        p1: Vector3<f32>,
+        p2: Vector3<f32>,
+    ) {
+        let a0 = Vector2::new(p0.x as i32, p0.y as i32);
+        let a1 = Vector2::new(p1.x as i32, p1.y as i32);
+        let a2 = Vector2::new(p2.x as i32, p2.y as i32);
 
-            let p0 = Point2::new(
-                ((v0.as_vector3().x + 1.0) * (width / 2.0)) as i32,
-                ((v0.as_vector3().y + 1.0) * (height / 2.0)) as i32,
-            );
-            let p1 = Point2::new(
-                ((v1.as_vector3().x + 1.0) * (width / 2.0)) as i32,
-                ((v1.as_vector3().y + 1.0) * (height / 2.0)) as i32,
-            );
-
-            draw_line(&mut image, colour, p0, p1);
+        match &self {
+            Self::Wireframe => {
+                draw_line(image, colour, a0, a1);
+                draw_line(image, colour, a1, a2);
+                draw_line(image, colour, a2, a0);
+            }
+            Self::Solid => {
+                draw_triangle(image, z_buffer, colour, p0, p1, p2);
+            }
         }
     }
 }
 
-pub fn draw_solid<C: DerefMut<Target = [u8]>>(
+pub fn render_scene<C: DerefMut<Target = [u8]>>(
     mut image: &mut ImageBuffer<Rgb<u8>, C>,
     colour: Rgb<u8>,
     model: &Model,
+    render_mode: RenderMode,
 ) {
     let width = 400.0;
     let height = 300.0;
 
     let reverse_colour = Rgb([255, 255, 0]);
 
-    let camera = Vector3::new(2.0, -4.0, -5.0);
+    let camera = Vector3::new(2.0, 1.0, 5.0);
     let centre = Vector3::new(0.0, 0.0, 0.0);
 
     let light = camera.normalize();
@@ -81,7 +87,7 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
             let b = (channels[2] as f32 * intensity) as u8;
             let colour_out = Rgb([r, g, b]);
 
-            draw_triangle(
+            render_mode.draw_triangle(
                 &mut image,
                 &mut z_buffer,
                 colour_out,
@@ -97,7 +103,7 @@ pub fn draw_solid<C: DerefMut<Target = [u8]>>(
             let b = (channels[2] as f32 * -intensity) as u8;
             let colour_out = Rgb([r, g, b]);
 
-            draw_triangle(
+            render_mode.draw_triangle(
                 &mut image,
                 &mut z_buffer,
                 colour_out,
