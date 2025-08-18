@@ -12,6 +12,7 @@ use image::imageops::flip_vertical;
 use image::{Rgb, RgbaImage};
 
 use model::Model;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use render::{render_scene, RenderMode};
 
 #[derive(Parser, Debug)]
@@ -33,7 +34,7 @@ fn main() {
     let width = 400;
     let height = 300;
 
-    let num_frames = 20;
+    let num_frames = 100;
 
     let model = Model::new_from_obj(&args.model).unwrap();
 
@@ -44,37 +45,52 @@ fn main() {
     let mut encoder = Encoder::new(writer, width as u16, height as u16, &[]).unwrap();
     encoder.set_repeat(Repeat::Infinite).unwrap();
 
-    for i in 0..num_frames {
-        println!("Frame {}", i);
+    let frames = (0..num_frames)
+        .into_par_iter()
+        .map(|i| render_one_frame(i, num_frames, width, height, mode, &model))
+        .collect::<Vec<Frame<'static>>>();
 
-        let mut image = RgbaImage::new(width, height);
-
-        match mode {
-            "wireframe" => render_scene(
-                &mut image,
-                Rgb([0, 255, 255]),
-                Rgb([255, 255, 0]),
-                &model,
-                RenderMode::Wireframe,
-                (2.0 * PI * i as f32) / num_frames as f32,
-            ),
-            "solid" => render_scene(
-                &mut image,
-                Rgb([0, 255, 255]),
-                Rgb([255, 255, 0]),
-                &model,
-                RenderMode::Solid,
-                (2.0 * PI * i as f32) / num_frames as f32,
-            ),
-            _ => panic!("Unknown mode"),
-        };
-        image = flip_vertical(&image);
-
-        let mut pixels = image.into_raw();
-        let mut frame =
-            Frame::from_rgba_speed(width as u16, height as u16, pixels.as_mut_slice(), 30);
-        frame.dispose = DisposalMethod::Background;
-
+    for frame in frames {
         encoder.write_frame(&frame).unwrap();
     }
+}
+
+fn render_one_frame(
+    i: usize,
+    num_frames: usize,
+    width: u32,
+    height: u32,
+    mode: &str,
+    model: &Model,
+) -> Frame<'static> {
+    println!("Frame {}", i);
+
+    let mut image = RgbaImage::new(width, height);
+
+    match mode {
+        "wireframe" => render_scene(
+            &mut image,
+            Rgb([0, 255, 255]),
+            Rgb([255, 255, 0]),
+            &model,
+            RenderMode::Wireframe,
+            (2.0 * PI * i as f32) / num_frames as f32,
+        ),
+        "solid" => render_scene(
+            &mut image,
+            Rgb([0, 255, 255]),
+            Rgb([255, 255, 0]),
+            &model,
+            RenderMode::Solid,
+            (2.0 * PI * i as f32) / num_frames as f32,
+        ),
+        _ => panic!("Unknown mode"),
+    };
+    image = flip_vertical(&image);
+
+    let mut pixels = image.into_raw();
+    let mut frame = Frame::from_rgba_speed(width as u16, height as u16, pixels.as_mut_slice(), 30);
+    frame.dispose = DisposalMethod::Background;
+
+    frame
 }
