@@ -18,9 +18,13 @@ impl RenderMode {
         image: &mut ImageBuffer<P, C>,
         z_buffer: &mut Array2D<f32>,
         colour: P,
+        line_colour: P,
         p0: Vector3<f32>,
         p1: Vector3<f32>,
         p2: Vector3<f32>,
+        vt0: Option<usize>,
+        vt1: Option<usize>,
+        vt2: Option<usize>,
     ) {
         let a0 = Vector2::new(p0.x as i32, p0.y as i32);
         let a1 = Vector2::new(p1.x as i32, p1.y as i32);
@@ -33,7 +37,18 @@ impl RenderMode {
                 draw_line(image, colour, a2, a0);
             }
             Self::Solid => {
-                draw_triangle(image, z_buffer, colour, p0, p1, p2);
+                draw_triangle(
+                    image,
+                    z_buffer,
+                    colour,
+                    line_colour,
+                    p0,
+                    p1,
+                    p2,
+                    vt0,
+                    vt1,
+                    vt2,
+                );
             }
         }
     }
@@ -79,42 +94,55 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
         let normal = (world_2 - world_0).cross(&(world_1 - world_0)).normalize();
         let intensity = normal.dot(&light);
 
+        let line_colour = Rgb([255, 0, 0]);
+
         // If intensity positive then outward facing, if negative then inward facing.
         // If zero then perpendicular so don't need to draw.
         if intensity > 0.0 {
-            let rgb = colour.to_rgb();
-            let channels = rgb.channels();
-            let r = (channels[0] as f32 * intensity) as u8;
-            let g = (channels[1] as f32 * intensity) as u8;
-            let b = (channels[2] as f32 * intensity) as u8;
-            let colour_out = Rgba([r, g, b, 255]);
+            let colour_out = scale_colour(colour, intensity);
+            let line_colour_out = scale_colour(line_colour, intensity);
 
             render_mode.draw_triangle(
                 &mut image,
                 &mut z_buffer,
                 colour_out,
+                line_colour_out,
                 to_affine(&screen_0).into(),
                 to_affine(&screen_1).into(),
                 to_affine(&screen_2).into(),
+                face.vt0,
+                face.vt1,
+                face.vt2,
             );
         } else if intensity < 0.0 {
-            let rgb = reverse_colour.to_rgb();
-            let channels = rgb.channels();
-            let r = (channels[0] as f32 * -intensity) as u8;
-            let g = (channels[1] as f32 * -intensity) as u8;
-            let b = (channels[2] as f32 * -intensity) as u8;
-            let colour_out = Rgba([r, g, b, 255]);
+            let colour_out = scale_colour(reverse_colour, -intensity);
+            let line_colour_out = scale_colour(line_colour, -intensity);
 
             render_mode.draw_triangle(
                 &mut image,
                 &mut z_buffer,
                 colour_out,
+                line_colour_out,
                 to_affine(&screen_0).into(),
                 to_affine(&screen_1).into(),
                 to_affine(&screen_2).into(),
+                face.vt0,
+                face.vt1,
+                face.vt2,
             );
         }
     }
+}
+
+fn scale_colour(colour: Rgb<u8>, intensity: f32) -> Rgba<u8> {
+    let rgb = colour.to_rgb();
+    let channels = rgb.channels();
+
+    let r = (channels[0] as f32 * intensity) as u8;
+    let g = (channels[1] as f32 * intensity) as u8;
+    let b = (channels[2] as f32 * intensity) as u8;
+
+    Rgba([r, g, b, 255])
 }
 
 fn to_homog(a: &Vector3<f32>) -> Vector4<f32> {

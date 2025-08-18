@@ -33,7 +33,7 @@ fn main() {
     let width = 400;
     let height = 300;
 
-    let num_frames = 50;
+    let num_frames = 20;
 
     let model = Model::new_from_obj(&args.model).unwrap();
 
@@ -56,7 +56,7 @@ fn main() {
                 Rgb([255, 255, 0]),
                 &model,
                 RenderMode::Wireframe,
-                0.0,
+                (2.0 * PI * i as f32) / num_frames as f32,
             ),
             "solid" => render_scene(
                 &mut image,
@@ -72,7 +72,7 @@ fn main() {
 
         let mut pixels = image.into_raw();
         let mut frame =
-            Frame::from_rgba_speed(width as u16, height as u16, pixels.as_mut_slice(), 20);
+            Frame::from_rgba_speed(width as u16, height as u16, pixels.as_mut_slice(), 30);
         frame.dispose = DisposalMethod::Background;
 
         encoder.write_frame(&frame).unwrap();

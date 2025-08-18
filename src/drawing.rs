@@ -65,9 +65,13 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
     image: &mut ImageBuffer<P, C>,
     z_buffer: &mut Array2D<f32>,
     colour: P,
+    line_colour: P,
     p0: Vector3<f32>,
     p1: Vector3<f32>,
     p2: Vector3<f32>,
+    vt0: Option<usize>,
+    vt1: Option<usize>,
+    vt2: Option<usize>,
 ) {
     // Calculate bounding box
     let mut min_x: i32 = image.width() as i32 - 1;
@@ -91,10 +95,24 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
                 continue;
             }
 
+            let line_x = (vt1 == Some(1)) & (vt2 == Some(1));
+            let line_y = (vt0 == Some(1)) & (vt2 == Some(1));
+            let line_z = (vt0 == Some(1)) & (vt1 == Some(1));
+
+            let line_threshold = 0.3;
+            let chosen_colour = if (line_x & (b.x < line_threshold))
+                | (line_y & (b.y < line_threshold))
+                | (line_z & (b.z < line_threshold))
+            {
+                line_colour
+            } else {
+                colour
+            };
+
             let z = (p0.z * b.x) + (p1.z * b.y) + (p2.z * b.z);
             if &z < z_buffer.get(x as usize, y as usize).unwrap() {
                 z_buffer.set(x as usize, y as usize, z).unwrap();
-                image.put_pixel(x as u32, y as u32, colour);
+                image.put_pixel(x as u32, y as u32, chosen_colour);
             }
         }
     }

@@ -21,14 +21,27 @@ pub struct Face {
     pub i0: usize,
     pub i1: usize,
     pub i2: usize,
+    pub vt0: Option<usize>,
+    pub vt1: Option<usize>,
+    pub vt2: Option<usize>,
 }
 
 impl Face {
-    pub fn new(i0: usize, i1: usize, i2: usize) -> Self {
+    pub fn new(
+        i0: usize,
+        i1: usize,
+        i2: usize,
+        vt0: Option<usize>,
+        vt1: Option<usize>,
+        vt2: Option<usize>,
+    ) -> Self {
         Face {
             i0: i0,
             i1: i1,
             i2: i2,
+            vt0: vt0,
+            vt1: vt1,
+            vt2: vt2,
         }
     }
 }
@@ -48,7 +61,7 @@ impl Model {
 
         for line in reader.lines() {
             let unwrapped_line = line.unwrap();
-            let mut parts: Vec<&str> = unwrapped_line.split(" ").collect();
+            let parts: Vec<&str> = unwrapped_line.split(" ").collect();
 
             let line_type = parts[0];
             match line_type {
@@ -59,32 +72,28 @@ impl Model {
 
                     vertices.push(Vertex::new(x, y, z));
                 }
-                "f" => {
-                    match parts.len() {
-                        4 => {
-                            let i0: usize = parts[1].split("/").next().unwrap().parse().unwrap();
-                            let i1: usize = parts[2].split("/").next().unwrap().parse().unwrap();
-                            let i2: usize = parts[3].split("/").next().unwrap().parse().unwrap();
+                "f" => match parts.len() {
+                    4 => {
+                        let (i0, vt0) = parse_face_vertex(parts[1]);
+                        let (i1, vt1) = parse_face_vertex(parts[2]);
+                        let (i2, vt2) = parse_face_vertex(parts[3]);
 
-                            // The file uses 1-indices, but we use 0-indices.
-                            faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
-                        }
-                        5 => {
-                            let i0: usize = parts[1].split("/").next().unwrap().parse().unwrap();
-                            let i1: usize = parts[2].split("/").next().unwrap().parse().unwrap();
-                            let i2: usize = parts[3].split("/").next().unwrap().parse().unwrap();
-                            let i3: usize = parts[4].split("/").next().unwrap().parse().unwrap();
-
-                            // The file uses 1-indices, but we use 0-indices.
-                            faces.push(Face::new(i0 - 1, i1 - 1, i2 - 1));
-                            faces.push(Face::new(i0 - 1, i2 - 1, i3 - 1));
-                        }
-
-                        num_parts => {
-                            panic!("Unsupported number of vertices: {}", num_parts - 1)
-                        }
+                        faces.push(Face::new(i0, i1, i2, vt0, vt1, vt2));
                     }
-                }
+                    5 => {
+                        let (i0, vt0) = parse_face_vertex(parts[1]);
+                        let (i1, vt1) = parse_face_vertex(parts[2]);
+                        let (i2, vt2) = parse_face_vertex(parts[3]);
+                        let (i3, vt3) = parse_face_vertex(parts[4]);
+
+                        faces.push(Face::new(i0, i1, i2, vt0, vt1, vt2));
+                        faces.push(Face::new(i0, i2, i3, vt0, vt2, vt3));
+                    }
+
+                    num_parts => {
+                        panic!("Unsupported number of vertices: {}", num_parts - 1)
+                    }
+                },
                 _ => {}
             }
         }
@@ -102,4 +111,14 @@ impl Model {
     pub fn vertex(&self, index: usize) -> &Vertex {
         &self.vertices[index]
     }
+}
+
+fn parse_face_vertex(vertex_str: &str) -> (usize, Option<usize>) {
+    let mut parts = vertex_str.split("/");
+
+    // The file uses 1-indices, but we use 0-indices.
+    let vertex_index = parts.next().unwrap().parse::<usize>().unwrap() - 1;
+    let vertex_texture_index = parts.next().map(|x| x.parse::<usize>().unwrap() - 1);
+
+    (vertex_index, vertex_texture_index)
 }
