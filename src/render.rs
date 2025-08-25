@@ -1,24 +1,24 @@
-use std::ops::DerefMut;
-
 use array2d::Array2D;
-use image::{ImageBuffer, Pixel, Rgb, Rgba};
+use clap::ValueEnum;
 use nalgebra::{Matrix4, Rotation3, Vector2, Vector3, Vector4};
 
 use crate::drawing::{draw_line, draw_triangle};
+use crate::drawing_target::{Colour, DrawingTarget};
 use crate::model::Model;
 
+#[derive(Debug, Clone, ValueEnum, Copy)]
 pub enum RenderMode {
     Wireframe,
     Solid,
 }
 
 impl RenderMode {
-    fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
+    fn draw_triangle<T: DrawingTarget>(
         &self,
-        image: &mut ImageBuffer<P, C>,
+        target: &mut T,
         z_buffer: &mut Array2D<f32>,
-        colour: P,
-        line_colour: P,
+        colour: Colour,
+        line_colour: Colour,
         p0: Vector3<f32>,
         p1: Vector3<f32>,
         p2: Vector3<f32>,
@@ -32,13 +32,13 @@ impl RenderMode {
 
         match &self {
             Self::Wireframe => {
-                draw_line(image, colour, a0, a1);
-                draw_line(image, colour, a1, a2);
-                draw_line(image, colour, a2, a0);
+                draw_line(target, colour, a0, a1);
+                draw_line(target, colour, a1, a2);
+                draw_line(target, colour, a2, a0);
             }
             Self::Solid => {
                 draw_triangle(
-                    image,
+                    target,
                     z_buffer,
                     colour,
                     line_colour,
@@ -54,16 +54,16 @@ impl RenderMode {
     }
 }
 
-pub fn render_scene<C: DerefMut<Target = [u8]>>(
-    mut image: &mut ImageBuffer<Rgba<u8>, C>,
-    colour: Rgb<u8>,
-    reverse_colour: Rgb<u8>,
+pub fn render_scene<T: DrawingTarget>(
+    target: &mut T,
+    colour: Colour,
+    reverse_colour: Colour,
     model: &Model,
     render_mode: RenderMode,
     rotation: f32,
 ) {
-    let width = 400.0;
-    let height = 300.0;
+    let width = 600.0;
+    let height = 400.0;
 
     let rotation_matrix = Rotation3::from_axis_angle(&Vector3::y_axis(), rotation);
 
@@ -76,11 +76,7 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
     let projection = projection_matrix(1.0, 8.0, 0.5, 0.5);
     let scaling = scaling_matrix(width, height);
 
-    let mut z_buffer = Array2D::fill_with(
-        f32::INFINITY,
-        image.width() as usize,
-        image.height() as usize,
-    );
+    let mut z_buffer = Array2D::fill_with(f32::INFINITY, 600, 400);
 
     for face in model.faces() {
         let world_0 = rotation_matrix * model.vertex(face.i0).as_vector3();
@@ -94,16 +90,16 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
         let normal = (world_2 - world_0).cross(&(world_1 - world_0)).normalize();
         let intensity = normal.dot(&light);
 
-        let line_colour = Rgb([255, 0, 0]);
+        let line_colour = Colour::new(255, 0, 0);
 
         // If intensity positive then outward facing, if negative then inward facing.
         // If zero then perpendicular so don't need to draw.
         if intensity > 0.0 {
-            let colour_out = scale_colour(colour, intensity);
-            let line_colour_out = scale_colour(line_colour, intensity);
+            let colour_out = colour.scale(intensity);
+            let line_colour_out = line_colour.scale(intensity);
 
             render_mode.draw_triangle(
-                &mut image,
+                target,
                 &mut z_buffer,
                 colour_out,
                 line_colour_out,
@@ -115,11 +111,11 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
                 face.vt2,
             );
         } else if intensity < 0.0 {
-            let colour_out = scale_colour(reverse_colour, -intensity);
-            let line_colour_out = scale_colour(line_colour, -intensity);
+            let colour_out = reverse_colour.scale(-intensity);
+            let line_colour_out = line_colour.scale(-intensity);
 
             render_mode.draw_triangle(
-                &mut image,
+                target,
                 &mut z_buffer,
                 colour_out,
                 line_colour_out,
@@ -132,17 +128,6 @@ pub fn render_scene<C: DerefMut<Target = [u8]>>(
             );
         }
     }
-}
-
-fn scale_colour(colour: Rgb<u8>, intensity: f32) -> Rgba<u8> {
-    let rgb = colour.to_rgb();
-    let channels = rgb.channels();
-
-    let r = (channels[0] as f32 * intensity) as u8;
-    let g = (channels[1] as f32 * intensity) as u8;
-    let b = (channels[2] as f32 * intensity) as u8;
-
-    Rgba([r, g, b, 255])
 }
 
 fn to_homog(a: &Vector3<f32>) -> Vector4<f32> {

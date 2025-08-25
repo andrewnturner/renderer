@@ -1,14 +1,14 @@
 use std::cmp::{max, min};
 use std::mem::swap;
-use std::ops::DerefMut;
 
 use array2d::Array2D;
-use image::{ImageBuffer, Pixel};
 use nalgebra::{Vector2, Vector3};
 
-pub fn draw_line<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
-    image: &mut ImageBuffer<P, C>,
-    colour: P,
+use crate::drawing_target::{Colour, DrawingTarget};
+
+pub fn draw_line<T: DrawingTarget>(
+    target: &mut T,
+    colour: Colour,
     p0: Vector2<i32>,
     p1: Vector2<i32>,
 ) {
@@ -33,10 +33,10 @@ pub fn draw_line<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
 
         let (target_x, target_y) = if steep { (y, x as u32) } else { (x as u32, y) };
 
-        if (target_x >= image.width()) | (target_y >= image.height()) {
+        if (target_x >= target.width()) | (target_y >= target.height()) {
             continue;
         }
-        image.put_pixel(target_x, target_y, colour);
+        target.set_pixel(target_x, target_y, colour);
     }
 }
 
@@ -61,11 +61,11 @@ fn barycentric_coordinates(
     Vector3::new(1.0 - ((u.x + u.y) / u.z), u.y / u.z, u.x / u.z)
 }
 
-pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
-    image: &mut ImageBuffer<P, C>,
+pub fn draw_triangle<T: DrawingTarget>(
+    image: &mut T,
     z_buffer: &mut Array2D<f32>,
-    colour: P,
-    line_colour: P,
+    colour: Colour,
+    line_colour: Colour,
     p0: Vector3<f32>,
     p1: Vector3<f32>,
     p2: Vector3<f32>,
@@ -112,7 +112,7 @@ pub fn draw_triangle<P: Pixel + 'static, C: DerefMut<Target = [P::Subpixel]>>(
             let z = (p0.z * b.x) + (p1.z * b.y) + (p2.z * b.z);
             if &z < z_buffer.get(x as usize, y as usize).unwrap() {
                 z_buffer.set(x as usize, y as usize, z).unwrap();
-                image.put_pixel(x as u32, y as u32, chosen_colour);
+                image.set_pixel(x as u32, y as u32, chosen_colour);
             }
         }
     }
